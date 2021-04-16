@@ -18,14 +18,14 @@ type Response struct {
 }
 
 type Rule struct {
-	Identifier string
-	Selector   string
-	IsRepeated bool
+	Identifier string `validate:"required"`
+	Selector   string `validate:"required"`
+	IsRepeated bool   `validate:"required"`
 	Output     struct {
 		Property string
 		Target   string
 		Callback func(obj string) (interface{}, error)
-	}
+	} `validate:"required"`
 	Children []Rule
 }
 
