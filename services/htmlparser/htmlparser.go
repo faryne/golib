@@ -36,10 +36,9 @@ var output = make(map[string]interface{}, 0)
 
 // Init Crawler
 func New(rules []Rule) *parser {
-	client := h.Client{}
 	return &parser{
 		Rules:      rules,
-		HttpClient: client,
+		HttpClient: h.Client{},
 	}
 }
 
@@ -48,12 +47,14 @@ func (p *parser) Crawl(req *h.Request) (map[string]interface{}, error) {
 	// send http request & get response
 	resp, err := p.HttpClient.Do(req)
 	defer resp.Body.Close()
+	// 將指標轉為實體並指定給 body
+	body := *resp
 	if err != nil {
 		return output, err
 	}
 
 	// initialize goquery
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(body.Body)
 	if err != nil {
 		return output, err
 	}
@@ -80,10 +81,10 @@ func (p *parser) parse(rule Rule, selection *goquery.Selection) interface{} {
 	var tmp1 = make(map[string][]interface{}, 0)
 	selection.Each(func(i int, s *goquery.Selection) {
 		if len(rule.Children) <= 0 {
-			tmp = append(tmp, p.clear(rule, selection))
+			tmp = append(tmp, p.clear(rule, s))
 		} else {
 			for _, r := range rule.Children {
-				tmp1[r.Identifier] = append(tmp1[r.Identifier], p.parse(r, selection.Find(r.Selector)))
+				tmp1[r.Identifier] = append(tmp1[r.Identifier], p.parse(r, s.Find(r.Selector)))
 			}
 		}
 	})
