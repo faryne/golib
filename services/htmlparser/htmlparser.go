@@ -63,29 +63,35 @@ func (p *parser) Crawl(req *h.Request) (map[string]interface{}, error) {
 	}
 	return output, err
 }
+
 func (p *parser) parse(rule Rule, selection *goquery.Selection) interface{} {
 	if rule.IsRepeated == false {
 		if len(rule.Children) <= 0 {
 			return p.clear(rule, selection)
-		}
-		var output = make(map[string]interface{})
-		if rule.Children != nil {
+		} else {
+			var output = make(map[string]interface{})
 			for _, r := range rule.Children {
+				fmt.Println("aa: " + r.Selector)
 				output[rule.Identifier] = p.parse(r, selection.Find(r.Selector))
 			}
+			return output
 		}
-		return output
 	}
 
-	var tmp = make([]ParseResult, 0)
-	var tmp1 = make(map[string][]interface{}, 0)
+	var tmp = make([]interface{}, 0)
+	var tmp1 = make(map[string]interface{}, 0)
 	selection.Each(func(i int, s *goquery.Selection) {
+		//fmt.Println(s.Text())
 		if len(rule.Children) <= 0 {
+			fmt.Println("bb: " + rule.Selector)
 			tmp = append(tmp, p.clear(rule, s))
 		} else {
 			for _, r := range rule.Children {
-				tmp1[r.Identifier] = append(tmp1[r.Identifier], p.parse(r, s.Find(r.Selector)))
+				//fmt.Println("cc: " + r.Selector)
+				//tmp1[r.Identifier] = append(tmp1[r.Identifier], p.parse(r, s.Find(r.Selector)))
+				tmp1[r.Identifier] = p.parse(r, s.Find(r.Selector))
 			}
+			//tmp = append(tmp, tmp1)
 		}
 	})
 	if len(rule.Children) <= 0 {
@@ -95,7 +101,7 @@ func (p *parser) parse(rule Rule, selection *goquery.Selection) interface{} {
 }
 
 func (p *parser) clear(rule Rule, selection *goquery.Selection) ParseResult {
-	dataType := strings.ToUpper(rule.Output.Property)
+	dataType := strings.ToUpper(rule.Output.Target)
 	var content string
 
 	switch dataType {
