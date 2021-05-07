@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/faryne/golib/services/http"
 	h "net/http"
 	"strings"
 )
@@ -13,51 +12,53 @@ type ParseResult struct {
 	Error   error
 	Content interface{}
 }
-type Response struct {
-	Response map[string]interface{}
+
+type RuleOutput struct {
+	Property string
+	Target   string
+	Callback func(obj string) interface{}
 }
 
 type Rule struct {
-	Identifier string `validate:"required"`
-	Selector   string `validate:"required"`
-	IsRepeated bool   `validate:"required"`
-	Output     struct {
-		Property string
-		Target   string
-		Callback func(obj string) (interface{}, error)
-	} `validate:"required"`
-	Children []Rule
+	Identifier string     `validate:"required"`
+	Selector   string     `validate:"required"`
+	IsRepeated bool       `validate:"required"`
+	Output     RuleOutput `validate:"required"`
+	Children   []Rule
 }
 
 type parser struct {
 	Rules      []Rule
-	HttpClient *http.HttpClient
+	HttpClient h.Client
 }
+
+var output = make(map[string]interface{}, 0)
 
 // Init Crawler
 func New(rules []Rule) *parser {
+	client := h.Client{}
 	return &parser{
 		Rules:      rules,
-		HttpClient: http.New(),
+		HttpClient: client,
 	}
 }
 
 // Starting to crawl
-func (p *parser) Crawl(req h.Request) (Response, error) {
-	var output = Response{}
+func (p *parser) Crawl(req *h.Request) (map[string]interface{}, error) {
 	// send http request & get response
-	response, err := p.HttpClient.SendRequest(req)
-	response.Header.Get("Content-Type")
+	resp, err := p.HttpClient.Do(req)
+	defer resp.Body.Close()
 	if err != nil {
 		return output, err
 	}
+
 	// initialize goquery
-	doc, err := goquery.NewDocumentFromReader(response.Body)
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return output, err
 	}
 	for _, rule := range p.Rules {
-		output.Response[rule.Identifier] = p.parse(rule, doc.Find(rule.Selector))
+		output[rule.Identifier] = p.parse(rule, doc.Find(rule.Selector))
 	}
 	return output, err
 }
@@ -67,8 +68,10 @@ func (p *parser) parse(rule Rule, selection *goquery.Selection) interface{} {
 			return p.clear(rule, selection)
 		}
 		var output = make(map[string]interface{})
-		for _, r := range rule.Children {
-			output[rule.Identifier] = p.parse(r, selection.Find(r.Selector))
+		if rule.Children != nil {
+			for _, r := range rule.Children {
+				output[rule.Identifier] = p.parse(r, selection.Find(r.Selector))
+			}
 		}
 		return output
 	}
